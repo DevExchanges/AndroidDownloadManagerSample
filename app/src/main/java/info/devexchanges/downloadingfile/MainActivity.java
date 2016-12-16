@@ -1,5 +1,6 @@
 package info.devexchanges.downloadingfile;
 
+import android.Manifest;
 import android.app.DownloadManager;
 import android.app.DownloadManager.Query;
 import android.app.DownloadManager.Request;
@@ -7,10 +8,15 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.view.View;
 import android.webkit.MimeTypeMap;
 import android.webkit.URLUtil;
@@ -18,6 +24,7 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity {
+    private static final int REQUEST_STORAGE = 1;
     private long enqueue;
     private DownloadManager downloadManager;
     private final static String DOWNLOAD_URL = "http://i.imgur.com/wsibrEw.gif";
@@ -53,6 +60,38 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public void onClick(View view) {
+        int currentApiVersion = android.os.Build.VERSION.SDK_INT;
+        if (currentApiVersion >= Build.VERSION_CODES.M) {
+            requestStoragePermission();
+        } else {
+            downloadFile();
+        }
+    }
+
+    private void requestStoragePermission() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE}, REQUEST_STORAGE);
+        } else {
+            Log.i("Main", "Storage permissions have already been granted. Download the file");
+            downloadFile();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_STORAGE) {
+            // If request is cancelled, the result arrays are empty.
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                downloadFile();
+            } else  {
+                Toast.makeText(this, "You now can not download the file!", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    private void downloadFile() {
         downloadManager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
         Request request = new Request(Uri.parse(DOWNLOAD_URL));
 
@@ -62,7 +101,6 @@ public class MainActivity extends AppCompatActivity {
 
         //Save file to destination folder
         request.setDestinationInExternalPublicDir("/Downloads", name);
-
         enqueue = downloadManager.enqueue(request);
     }
 }
